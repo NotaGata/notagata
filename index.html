@@ -58,11 +58,48 @@
         sb.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'bill_items' }, () => loadItems()).subscribe();
         loadItems();
         // Înlocuiește logica butonului de Pay
-document.getElementById('pay-btn').onclick = () => {
-    const totalDePlata = document.getElementById('ui-total').innerText;
+document.getElementById('pay-btn').onclick = async () => {
+    const finalTotal = parseFloat(document.getElementById('ui-total').innerText);
+    const restName = document.getElementById('rest-name').innerText;
     
+    if (finalTotal <= 0) {
+        alert("⚠️ Selectează produsele!");
+        return;
+    }
+
+    const btn = document.getElementById('pay-btn');
+    btn.classList.add('btn-loading');
+    btn.innerText = "Se pregătește plata...";
+
+    try {
+        // Chemăm serverul nostru (Vercel Function)
+        const response = await fetch('/api/checkout', {
+            method: 'POST',
+            body: JSON.stringify({
+                amount: finalTotal,
+                restaurantName: restName
+            }),
+        });
+
+        const session = await response.json();
+
+        // Trimiterea clientului către pagina securizată Stripe creată DINAMIC
+        const result = await stripe.redirectToCheckout({
+            sessionId: session.id,
+        });
+
+        if (result.error) alert(result.error.message);
+    } catch (err) {
+        console.error(err);
+        alert("Eroare la inițierea plății.");
+    } finally {
+        btn.classList.remove('btn-loading');
+        btn.innerText = " Pay " + finalTotal + " RON";
+    }
+};
 
 };
     </script>
 </body>
+
 </html>
