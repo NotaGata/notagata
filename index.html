@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE h<!DOCTYPE html>
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
@@ -38,3 +38,155 @@
             Se sincronizează cu restaurantul...
         </div>
     </div>
+
+    <div class="fixed bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-100 shadow-[0_-15px_40px_rgba(0,0,0,0.06)] rounded-t-[2.5rem] z-50">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-gray-500 font-semibold text-sm">Subtotal:</span>
+            <span class="text-lg font-bold text-gray-800" id="ui-subtotal">0 RON</span>
+        </div>
+        <div class="flex justify-between items-center mb-6">
+            <span class="text-green-600 font-bold italic text-sm italic">Discount NotaGata (30%):</span>
+            <span class="text-lg font-black text-green-600" id="ui-discount">-0 RON</span>
+        </div>
+        
+        <button id="pay-btn" class="w-full py-5 bg-black text-white font-black rounded-2xl shadow-xl active:scale-[0.97] transition-all flex justify-center items-center space-x-3">
+            <span class="text-xl"> Pay</span>
+            <span id="ui-total" class="bg-white/20 px-3 py-1 rounded-lg text-lg">0 RON</span>
+        </button>
+        <p class="text-[8px] text-center text-gray-400 mt-4 uppercase tracking-[0.2em]">Tranzacție securizată • Stripe Terminal</p>
+    </div>
+
+    <script>
+        // 1. CONFIGURARE BAZĂ DE DATE (SUPABASE)
+        const SUPABASE_URL = 'https://etvbmlqvwmzppmuargaf.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0dmJtbHF2d216cHBtdWFyZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDA5OTEsImV4cCI6MjA4NTYxNjk5MX0.so_V_0cbtRrKqieL8NSTU0EC9t-kTy1WenNVutaNtcY';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 2. CONFIGURARE PROCESATOR (STRIPE)
+        const stripe = Stripe('pk_test_51SwQE7Fh6VvPtCfai6TWSatQOqf7fHn29qxZHwlu8xAGNoAw3XTMcPqcUhn0fMTlbal0JXVUqjDFMNBi9xwqxY4100B3nQ5nJy');
+
+        let currentSum = 0;
+
+        // 3. FUNCȚIA DE ÎNCĂRCARE DATE LIVE
+        async function loadData() {
+            try {
+                // Luăm numele restaurantului
+                const { data: rest } = await sb.from('restaurants').select('name').single();
+                if(rest) document.getElementById('rest-name').innerText = rest.name;
+
+                // Luăm produsele active de pe notă
+                const { data: items } = await sb.from('bill_items').select('*');
+                
+                const container = document.getElementById('items-list');
+                const loader = document.getElementById('loader');
+                if(loader) loader.remove();
+
+                // Resetăm UI-ul listei
+                container.innerHTML = '<p class="text-gray-400 text-[10px] font-black uppercase tracking-widest ml-1 mb-2">Comanda ta la masă:</p>';
+                currentSum = 0; 
+                updateUI();
+
+                if(items && items.length > 0) {
+                    items.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = "flex justify-between items-center p-5 bg-white rounded-2xl border border-gray-100 shadow-sm transition-all active:bg-gray-50 select-none cursor-pointer";
+                        card.innerHTML = `
+                            <div>
+                                <h3 class="font-black text-gray-800 text-sm">${item.name}</h3>
+                                <p class="text-xs font-bold text-gray-400">${item.price} RON</p>
+                            </div>
+                            <div class="check-icon opacity-5 text-xl">✅</div>
+                        `;
+
+                        card.onclick = () => {
+                            card.classList.toggle('selected-card');
+                            const icon = card.querySelector('.check-icon');
+                            icon.classList.toggle('check-active');
+
+                            if(card.classList.contains('selected-card')) {
+                                currentSum += item.price;
+                            } else {
+                                currentSum -= item.price;
+                            }
+                            updateUI();
+                        };
+                        container.appendChild(card);
+                    });
+                } else {
+                    container.innerHTML += '<p class="text-center py-10 text-gray-300 italic text-sm">Nu sunt produse pe notă.</p>';
+                }
+            } catch (e) {
+                console.error("Eroare Supabase:", e);
+            }
+        }
+
+        function updateUI() {
+            const discount = currentSum * 0.3;
+            const total = currentSum - discount;
+            
+            document.getElementById('ui-subtotal').innerText = currentSum + " RON";
+            document.getElementById('ui-discount').innerText = "-" + discount.toFixed(1) + " RON";
+            document.getElementById('ui-total').innerText = total.toFixed(1) + " RON";
+        }
+
+        // 4. LOGICA BUTONULUI DE PLATĂ (STRIPE REDIRECT)
+        document.getElementById('pay-btn').onclick = async () => {
+            const finalTotal = parseFloat(document.getElementById('ui-total').innerText);
+            const restaurantName = document.getElementById('rest-name').innerText;
+
+            if (finalTotal <= 0) {
+                alert("⚠️ Selectează produsele pe care dorești să le plătești.");
+                return;
+            }
+
+            const btn = document.getElementById('pay-btn');
+            btn.classList.add('loading-btn');
+            btn.innerText = "Se inițializează plata...";
+
+            try {
+                // Chemăm API-ul creat pe Vercel (/api/checkout.js)
+                const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: finalTotal,
+                        restaurantName: restaurantName
+                    }),
+                });
+
+                const session = await response.json();
+
+                if (session.error) {
+                    throw new Error(session.error);
+                }
+
+                // Redirecționăm către Stripe Checkout Session
+                const result = await stripe.redirectToCheckout({
+                    sessionId: session.id,
+                });
+
+                if (result.error) {
+                    alert(result.error.message);
+                }
+            } catch (err) {
+                console.error("Eroare Plată:", err);
+                alert("Eroare la procesarea plății. Te rugăm să încerci din nou.");
+            } finally {
+                btn.classList.remove('loading-btn');
+                btn.innerText = " Pay " + finalTotal.toFixed(1) + " RON";
+            }
+        };
+
+        // 5. ACTUALIZARE REAL-TIME
+        // Dacă Admin-ul șterge sau adaugă ceva, telefonul clientului se actualizează instant
+        sb.channel('db-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_items' }, () => {
+              loadData();
+          })
+          .subscribe();
+
+        // Pornim aplicația
+        loadData();
+    </script>
+</body>
+</html>
