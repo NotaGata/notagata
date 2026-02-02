@@ -1,44 +1,31 @@
 import Stripe from 'stripe';
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  // Verificăm metoda
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Metodă nepermisă' });
-  }
-
-  // Verificăm cheia secretă
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.error("Lipsește STRIPE_SECRET_KEY în Vercel!");
-    return res.status(500).json({ error: "Eroare configurare server." });
-  }
+  if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const body = req.body;
-    const { amount, restaurantName } = body;
-
-    // Calculăm suma în bani/cenți (Stripe vrea numere întregi)
-    const amountInCents = Math.round(parseFloat(amount) * 100);
+    const { amount, restaurantName, billId } = req.body; // Am adăugat billId
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: 'ron',
-          product_data: { name: `Consumație ${restaurantName || 'Restaurant'}` },
-          unit_amount: amountInCents,
+          product_data: { name: `Consumație ${restaurantName}` },
+          unit_amount: Math.round(amount * 100),
         },
         quantity: 1,
       }],
       mode: 'payment',
+      // Trimitem ID-ul notei către Stripe pentru a-l recupera la finalul plății
+      metadata: { billId: "masa_12_id" }, 
       success_url: `${req.headers.origin}/success.html`,
       cancel_url: `${req.headers.origin}/index.html`,
     });
 
-    return res.status(200).json({ id: session.id });
+    res.status(200).json({ id: session.id });
   } catch (err) {
-    console.error('Eroare Stripe:', err.message);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 }
