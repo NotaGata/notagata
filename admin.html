@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8"><title>NotaGata Master Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-white p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-black text-green-400 mb-8 tracking-tighter uppercase">NotaGata HQ</h1>
+        
+        <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8">
+            <h2 class="text-xs font-black mb-4 text-slate-400 uppercase">Simulare POS: Adaugă produs</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input id="in-name" type="text" placeholder="Produs" class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <input id="in-price" type="number" placeholder="Preț" class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <button onclick="add()" class="bg-green-500 text-slate-900 font-black rounded-xl">ADĂUGARE</button>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700">
+            <h2 class="text-xs font-black mb-4 text-slate-400 uppercase">Produse Live pe Masă (Control Admin)</h2>
+            <div id="admin-list" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        const sb = supabase.createClient('https://etvbmlqvwmzppmuargaf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0dmJtbHF2d216cHBtdWFyZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDA5OTEsImV4cCI6MjA4NTYxNjk5MX0.so_V_0cbtRrKqieL8NSTU0EC9t-kTy1WenNVutaNtcY');
+        
+        async function add() {
+            const name = document.getElementById('in-name').value;
+            const price = document.getElementById('in-price').value;
+            const { data: bill } = await sb.from('bills').select('id').single();
+            await sb.from('bill_items').insert([{ bill_id: bill.id, name, price: parseFloat(price) }]);
+            document.getElementById('in-name').value = ''; document.getElementById('in-price').value = '';
+        }
+
+        async function del(id) {
+            if(confirm("Elimini produsul?")) await sb.from('bill_items').delete().eq('id', id);
+        }
+
+        async function refresh() {
+            const { data: items } = await sb.from('bill_items').select('*');
+            const list = document.getElementById('admin-list');
+            list.innerHTML = '';
+            items?.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between p-3 bg-slate-900 rounded-xl border border-slate-800";
+                div.innerHTML = `<div class="flex space-x-3"><button onclick="del('${item.id}')" class="text-red-500 font-bold">✕</button><span>${item.name}</span></div><span class="text-green-400">${item.price} RON</span>`;
+                list.appendChild(div);
+            });
+        }
+
+        sb.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'bill_items' }, () => refresh()).subscribe();
+        refresh();
+    </script>
+</body>
+</html>

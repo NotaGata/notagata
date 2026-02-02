@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8"><title>Partner Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-5xl mx-auto">
+        <header class="flex justify-between mb-10">
+            <h1 class="text-2xl font-black text-gray-800 uppercase">Bistro Central • Partner</h1>
+            <div class="text-right"><p class="text-xs font-bold text-gray-400 uppercase">Încasări azi</p><h2 id="daily-total" class="text-2xl font-black text-blue-600">0 RON</h2></div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-3xl border-2 border-green-500 shadow-sm relative">
+                <span class="absolute top-4 right-4 text-green-500 font-bold text-xs uppercase italic">Live</span>
+                <h3 class="text-lg font-black mb-1">Masa 12</h3>
+                <p id="table-status" class="text-xs text-gray-400 font-bold mb-4">Suma actuală:</p>
+                <p id="table-amount" class="text-xl font-black text-gray-800">0 RON</p>
+            </div>
+            <div class="bg-gray-50 p-6 rounded-3xl border border-dashed border-gray-300">
+                <h3 class="text-lg font-black text-gray-300">Masa 13</h3>
+                <p class="text-xs text-gray-300 font-bold">LIBERĂ</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sb = supabase.createClient('https://etvbmlqvwmzppmuargaf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0dmJtbHF2d216cHBtdWFyZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDA5OTEsImV4cCI6MjA4NTYxNjk5MX0.so_V_0cbtRrKqieL8NSTU0EC9t-kTy1WenNVutaNtcY');
+
+        async function updatePartnerView() {
+            const { data: items } = await sb.from('bill_items').select('price');
+            let total = 0; items?.forEach(i => total += i.price);
+            document.getElementById('table-amount').innerText = total + " RON";
+            document.getElementById('daily-total').innerText = (total * 0.95).toFixed(0) + " RON"; // Simulare
+        }
+
+        sb.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'bill_items' }, () => updatePartnerView()).subscribe();
+        updatePartnerView();
+    </script>
+</body>
+</html>

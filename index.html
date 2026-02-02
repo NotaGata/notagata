@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NotaGata - Plată Rapidă</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>.selected-card { border: 2px solid #10b981 !important; background-color: #f0fdf4 !important; }</style>
+</head>
+<body class="bg-gray-50 pb-44">
+    <header class="p-6 bg-white shadow-sm text-center border-b">
+        <h1 id="rest-name" class="text-2xl font-black text-gray-900 italic">NotaGata</h1>
+        <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mt-1">Masa 12 • Live</p>
+    </header>
+
+    <div id="items-list" class="px-4 mt-6 space-y-3">
+        </div>
+
+    <div class="fixed bottom-0 left-0 right-0 p-6 bg-white border-t shadow-2xl rounded-t-[2.5rem]">
+        <div class="flex justify-between mb-2 text-gray-500 font-medium"><span>Subtotal:</span><span id="ui-subtotal">0 RON</span></div>
+        <div class="flex justify-between mb-6 text-green-600 font-bold italic"><span>Discount Membru (30%):</span><span id="ui-discount">-0 RON</span></div>
+        <button class="w-full py-5 bg-black text-white font-black rounded-2xl shadow-xl flex justify-center items-center space-x-3">
+            <span> Pay</span><span id="ui-total" class="bg-white/20 px-3 py-1 rounded-lg">0 RON</span>
+        </button>
+    </div>
+
+    <script>
+        const sb = supabase.createClient('https://etvbmlqvwmzppmuargaf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0dmJtbHF2d216cHBtdWFyZ2FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNDA5OTEsImV4cCI6MjA4NTYxNjk5MX0.so_V_0cbtRrKqieL8NSTU0EC9t-kTy1WenNVutaNtcY');
+        let currentSum = 0;
+
+        async function loadItems() {
+            const { data: items } = await sb.from('bill_items').select('*');
+            const container = document.getElementById('items-list');
+            container.innerHTML = '<p class="text-gray-500 text-sm font-bold uppercase ml-1">Produse pe notă:</p>';
+            currentSum = 0; updateDisplay();
+
+            items?.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "flex justify-between items-center p-5 bg-white rounded-2xl border border-gray-100 shadow-sm transition-all";
+                card.innerHTML = `<div><h3 class="font-black text-gray-800">${item.name}</h3><p class="text-sm font-bold text-gray-400">${item.price} RON</p></div><div class="text-xl opacity-10">✅</div>`;
+                card.onclick = () => {
+                    card.classList.toggle('selected-card');
+                    currentSum += card.classList.contains('selected-card') ? item.price : -item.price;
+                    updateDisplay();
+                };
+                container.appendChild(card);
+            });
+        }
+
+        function updateDisplay() {
+            const disc = currentSum * 0.3;
+            document.getElementById('ui-subtotal').innerText = currentSum + " RON";
+            document.getElementById('ui-discount').innerText = "-" + disc.toFixed(1) + " RON";
+            document.getElementById('ui-total').innerText = (currentSum - disc).toFixed(1) + " RON";
+        }
+
+        // REALTIME: Reîncărcăm dacă se schimbă ceva în DB
+        sb.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'bill_items' }, () => loadItems()).subscribe();
+        loadItems();
+        // Înlocuiește logica butonului de Pay
+document.getElementById('pay-btn').onclick = () => {
+    const totalDePlata = document.getElementById('ui-total').innerText;
+    
+
+};
+    </script>
+</body>
+</html>
