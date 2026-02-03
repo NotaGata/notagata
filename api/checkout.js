@@ -4,16 +4,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Metoda nu este permisă' });
+    return res.status(405).json({ error: 'Metoda nu este permisa' });
   }
 
   try {
-    // Vercel parsează automat JSON-ul din body
     const { amount, restaurantName } = req.body;
-
-    if (!amount || isNaN(amount)) {
-      return res.status(400).json({ error: "Suma este invalidă." });
-    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -21,9 +16,9 @@ export default async function handler(req, res) {
         price_data: {
           currency: 'ron',
           product_data: { 
-            name: `Consumație ${restaurantName || 'NotaGata'}` 
+            name: `Nota de plata - ${restaurantName || 'NotaGata'}` 
           },
-          unit_amount: Math.round(parseFloat(amount) * 100), // Stripe vrea bani/cenți
+          unit_amount: Math.round(parseFloat(amount) * 100), // Transformă în bani/cenți
         },
         quantity: 1,
       }],
@@ -34,7 +29,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ id: session.id });
   } catch (err) {
-    console.error('Eroare Checkout:', err.message);
+    console.error('Stripe Error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
