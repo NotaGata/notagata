@@ -1,10 +1,10 @@
 {
   "name": "notagata-platform",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Sistem de plăți dinamice pentru NotaGata",
+  "main": "api/checkout.js",
   "dependencies": {
-    "stripe": "^14.0.0",
-    "@supabase/supabase-js": "^2.39.0"
+    "stripe": "^14.0.0"
   },
   "engines": {
     "node": "24.x"
